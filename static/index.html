@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShadowPot - Cyber Threat Intelligence Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            cyan: '#06b6d4',
+                            red: '#ef4444',
+                            amber: '#f59e0b',
+                            dark: '#0b0f19',
+                            card: '#111827',
+                            border: '#1f2937'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0b0f19; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+        .glow { box-shadow: 0 0 15px rgba(6, 182, 212, 0.15); }
+    </style>
+</head>
+<body class="bg-[#0b0f19] text-gray-200 min-h-screen">
+    <!-- Navbar -->
+    <nav class="border-b border-gray-800 bg-[#111827]/80 backdrop-blur sticky top-0 z-50 px-6 py-3.5 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="h-3 w-3 rounded-full bg-emerald-500 animate-pulse"></div>
+            <span class="text-xl font-bold tracking-wider font-mono text-cyan-400">SHADOW<span class="text-white">POT</span></span>
+            <span class="text-xs uppercase px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-800 text-cyan-300 font-mono">SSH Sensor & SIEM Engine</span>
+        </div>
+        <div class="flex items-center space-x-4 text-xs font-mono">
+            <span class="text-gray-400">STATUS: <span class="text-emerald-400">ACTIVE LISTENER (PORT 2222)</span></span>
+            <span class="text-gray-600">|</span>
+            <span id="clock" class="text-gray-400"></span>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto p-6 space-y-6">
+        <!-- Top Metrics Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
+            <div class="bg-[#111827] border border-gray-800 rounded-xl p-5 glow">
+                <div class="text-xs uppercase text-gray-400 font-mono tracking-wider">Total Attack Events</div>
+                <div id="stat-total" class="text-3xl font-bold text-white font-mono mt-2">0</div>
+                <div class="text-xs text-cyan-400 mt-2 flex items-center">
+                    <span>⚡ Real-time ingestion</span>
+                </div>
+            </div>
+
+            <div class="bg-[#111827] border border-gray-800 rounded-xl p-5">
+                <div class="text-xs uppercase text-gray-400 font-mono tracking-wider">Unique Attacker IPs</div>
+                <div id="stat-ips" class="text-3xl font-bold text-cyan-400 font-mono mt-2">0</div>
+                <div class="text-xs text-gray-400 mt-2">Enriched with GeoIP & ASN</div>
+            </div>
+
+            <div class="bg-[#111827] border border-gray-800 rounded-xl p-5">
+                <div class="text-xs uppercase text-gray-400 font-mono tracking-wider">Compromised Sessions</div>
+                <div id="stat-logins" class="text-3xl font-bold text-emerald-400 font-mono mt-2">0</div>
+                <div class="text-xs text-emerald-500/80 mt-2">Interactive PTY sessions</div>
+            </div>
+
+            <div class="bg-[#111827] border border-gray-800 rounded-xl p-5">
+                <div class="text-xs uppercase text-gray-400 font-mono tracking-wider">Captured Payloads</div>
+                <div id="stat-payloads" class="text-3xl font-bold text-rose-500 font-mono mt-2">0</div>
+                <div class="text-xs text-rose-400/80 mt-2">Quarantined & SHA-256 Hashed</div>
+            </div>
+        </div>
+
+        <!-- Charts & Live Feed Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Top Target Credentials -->
+            <div class="bg-[#111827] border border-gray-800 rounded-xl p-5">
+                <h3 class="text-sm font-semibold text-gray-300 font-mono flex items-center justify-between">
+                    <span>TOP TARGET USERNAMES</span>
+                    <span class="text-xs text-cyan-500">T1110.001</span>
+                </h3>
+                <div class="mt-4 h-64">
+                    <canvas id="userChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Top Countries -->
+            <div class="bg-[#111827] border border-gray-800 rounded-xl p-5">
+                <h3 class="text-sm font-semibold text-gray-300 font-mono flex items-center justify-between">
+                    <span>ATTACK ORIGINS (GEOIP)</span>
+                    <span class="text-xs text-cyan-500">GEO-LOC</span>
+                </h3>
+                <div class="mt-4 h-64 flex items-center justify-center">
+                    <canvas id="countryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Live Attack Ticker -->
+            <div class="bg-[#111827] border border-gray-800 rounded-xl p-5 flex flex-col">
+                <h3 class="text-sm font-semibold text-gray-300 font-mono flex items-center justify-between">
+                    <span>LIVE ATTACK STREAM</span>
+                    <span class="flex items-center space-x-1.5">
+                        <span class="h-2 w-2 rounded-full bg-emerald-400 animate-ping"></span>
+                        <span class="text-xs text-emerald-400">LIVE</span>
+                    </span>
+                </h3>
+                <div id="live-stream" class="mt-4 flex-1 h-64 overflow-y-auto space-y-2 font-mono text-xs pr-1">
+                    <div class="text-gray-500 italic p-2">Listening for incoming connections...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Event Logs Table -->
+        <div class="bg-[#111827] border border-gray-800 rounded-xl p-5">
+            <div class="flex items-center justify-between pb-4 border-b border-gray-800">
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-200 font-mono">TELEMETRY & MITRE ATT&CK LOGS</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">SIEM JSON feed synchronized with Wazuh rules</p>
+                </div>
+                <button onclick="refreshData()" class="px-3 py-1.5 text-xs font-mono bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-700 transition">
+                    ↻ Refresh
+                </button>
+            </div>
+
+            <div class="mt-4 overflow-x-auto">
+                <table class="w-full text-left text-xs font-mono">
+                    <thead class="text-gray-400 bg-gray-900/50 uppercase border-b border-gray-800">
+                        <tr>
+                            <th class="py-2.5 px-3">Timestamp</th>
+                            <th class="py-2.5 px-3">Source IP</th>
+                            <th class="py-2.5 px-3">Country</th>
+                            <th class="py-2.5 px-3">Event Type</th>
+                            <th class="py-2.5 px-3">Credentials</th>
+                            <th class="py-2.5 px-3">Command Executed</th>
+                            <th class="py-2.5 px-3">MITRE ID</th>
+                        </tr>
+                    </thead>
+                    <tbody id="events-table-body" class="divide-y divide-gray-800/60 text-gray-300">
+                        <tr>
+                            <td colspan="7" class="py-6 text-center text-gray-500">No events logged yet. Connect to port 2222 or run the simulation script.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Quarantined Payloads Table -->
+        <div class="bg-[#111827] border border-gray-800 rounded-xl p-5">
+            <h3 class="text-sm font-semibold text-gray-200 font-mono flex items-center justify-between">
+                <span>QUARANTINED MALWARE & PAYLOADS</span>
+                <span class="text-xs text-rose-400 font-mono">MITRE T1105</span>
+            </h3>
+            <div class="mt-4 overflow-x-auto">
+                <table class="w-full text-left text-xs font-mono">
+                    <thead class="text-gray-400 bg-gray-900/50 uppercase border-b border-gray-800">
+                        <tr>
+                            <th class="py-2.5 px-3">Timestamp</th>
+                            <th class="py-2.5 px-3">Source IP</th>
+                            <th class="py-2.5 px-3">URL Intercepted</th>
+                            <th class="py-2.5 px-3">SHA-256 Hash</th>
+                            <th class="py-2.5 px-3">Size</th>
+                            <th class="py-2.5 px-3">Quarantine File</th>
+                        </tr>
+                    </thead>
+                    <tbody id="payloads-table-body" class="divide-y divide-gray-800/60 text-gray-300">
+                        <tr>
+                            <td colspan="6" class="py-4 text-center text-gray-500">No payloads captured yet.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function updateClock() {
+            document.getElementById('clock').textContent = new Date().toUTCString();
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        let userChart, countryChart;
+
+        function initCharts() {
+            const ctxUser = document.getElementById('userChart').getContext('2d');
+            userChart = new Chart(ctxUser, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Attempts',
+                        data: [],
+                        backgroundColor: '#06b6d4',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { grid: { color: '#1f2937' }, ticks: { color: '#9ca3af' } },
+                        y: { grid: { color: '#1f2937' }, ticks: { color: '#9ca3af' }, beginAtZero: true }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            const ctxCountry = document.getElementById('countryChart').getContext('2d');
+            countryChart = new Chart(ctxCountry, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: ['#06b6d4', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af', font: { size: 10 } } } }
+                }
+            });
+        }
+
+        async function refreshData() {
+            try {
+                const [statsRes, eventsRes, payloadsRes] = await Promise.all([
+                    fetch('/api/stats'),
+                    fetch('/api/events?limit=30'),
+                    fetch('/api/payloads?limit=10')
+                ]);
+
+                const stats = await statsRes.json();
+                const events = await eventsRes.json();
+                const payloads = await payloadsRes.json();
+
+                // Update Metrics
+                document.getElementById('stat-total').textContent = stats.total_events || 0;
+                document.getElementById('stat-ips').textContent = stats.unique_ips || 0;
+                document.getElementById('stat-logins').textContent = stats.successful_logins || 0;
+                document.getElementById('stat-payloads').textContent = stats.captured_payloads || 0;
+
+                // Update Charts
+                if (stats.top_usernames && userChart) {
+                    userChart.data.labels = stats.top_usernames.map(u => u.username);
+                    userChart.data.datasets[0].data = stats.top_usernames.map(u => u.count);
+                    userChart.update();
+                }
+
+                if (stats.top_countries && countryChart) {
+                    countryChart.data.labels = stats.top_countries.map(c => c.country);
+                    countryChart.data.datasets[0].data = stats.top_countries.map(c => c.count);
+                    countryChart.update();
+                }
+
+                // Update Events Table
+                const tbody = document.getElementById('events-table-body');
+                if (events.length > 0) {
+                    tbody.innerHTML = events.map(e => `
+                        <tr class="hover:bg-gray-800/40">
+                            <td class="py-2 px-3 text-gray-400">${e.timestamp.replace('T', ' ').substring(0, 19)}</td>
+                            <td class="py-2 px-3 font-semibold text-cyan-400">${e.src_ip}</td>
+                            <td class="py-2 px-3 text-gray-300">${e.country || 'Unknown'}</td>
+                            <td class="py-2 px-3">${renderBadge(e.event_type)}</td>
+                            <td class="py-2 px-3 font-mono text-gray-300">${e.username ? `${e.username} : ${e.password || '***'}` : '-'}</td>
+                            <td class="py-2 px-3 font-mono text-emerald-300 max-w-xs truncate">${e.command || '-'}</td>
+                            <td class="py-2 px-3 font-mono text-xs text-amber-400">${e.mitre_id || '-'}</td>
+                        </tr>
+                    `).join('');
+                }
+
+                // Update Payloads Table
+                const payloadBody = document.getElementById('payloads-table-body');
+                if (payloads.length > 0) {
+                    payloadBody.innerHTML = payloads.map(p => `
+                        <tr class="hover:bg-gray-800/40">
+                            <td class="py-2 px-3 text-gray-400">${p.timestamp.replace('T', ' ').substring(0, 19)}</td>
+                            <td class="py-2 px-3 text-cyan-400">${p.src_ip}</td>
+                            <td class="py-2 px-3 text-amber-300 truncate max-w-xs">${p.url}</td>
+                            <td class="py-2 px-3 font-mono text-gray-300">${p.sha256.substring(0, 16)}...</td>
+                            <td class="py-2 px-3 text-gray-400">${p.size_bytes} B</td>
+                            <td class="py-2 px-3 text-rose-400 text-xs">${p.quarantine_path}</td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (err) {
+                console.error("Failed to fetch dashboard data:", err);
+            }
+        }
+
+        function renderBadge(type) {
+            switch(type) {
+                case 'auth_success':
+                    return '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800">AUTH SUCCESS</span>';
+                case 'auth_failure':
+                    return '<span class="px-2 py-0.5 rounded text-[10px] bg-rose-950 text-rose-300 border border-rose-800">AUTH FAILED</span>';
+                case 'command_exec':
+                    return '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-950 text-amber-300 border border-amber-800">COMMAND</span>';
+                case 'payload_download':
+                    return '<span class="px-2 py-0.5 rounded text-[10px] bg-red-900 text-red-100 border border-red-700 animate-pulse">PAYLOAD DROP</span>';
+                default:
+                    return `<span class="px-2 py-0.5 rounded text-[10px] bg-gray-800 text-gray-300">${type}</span>`;
+            }
+        }
+
+        // Setup SSE Stream
+        function setupEventStream() {
+            const eventSource = new EventSource('/api/stream');
+            const streamBox = document.getElementById('live-stream');
+
+            eventSource.onmessage = function(e) {
+                if (e.data.startsWith(':')) return;
+                try {
+                    const event = JSON.parse(e.data);
+                    const item = document.createElement('div');
+                    item.className = 'p-2 rounded bg-gray-900/80 border border-gray-800 text-xs space-y-1 transition-all';
+
+                    let details = '';
+                    if (event.event_type === 'auth_success' || event.event_type === 'auth_attempt') {
+                        details = `<span class="text-cyan-300">${event.auth?.username || 'root'}</span> : <span class="text-gray-400">${event.auth?.password || '***'}</span>`;
+                    } else if (event.command) {
+                        details = `<span class="text-emerald-400 font-bold">$ ${event.command}</span>`;
+                    }
+
+                    item.innerHTML = `
+                        <div class="flex justify-between items-center text-[10px] text-gray-500">
+                            <span>${event.source.ip} (${event.source.country || 'Unknown'})</span>
+                            <span>${renderBadge(event.event_type)}</span>
+                        </div>
+                        <div>${details}</div>
+                    `;
+
+                    streamBox.prepend(item);
+                    if (streamBox.children.length > 25) {
+                        streamBox.removeChild(streamBox.lastChild);
+                    }
+
+                    // Increment stats dynamically
+                    refreshData();
+                } catch(err) {}
+            };
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            refreshData();
+            setupEventStream();
+        });
+    </script>
+</body>
+</html>

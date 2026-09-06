@@ -1,0 +1,72 @@
+<!--
+  ShadowPot Custom Wazuh Rules
+  Place in: /var/ossec/etc/rules/local_rules.xml
+-->
+<group name="shadowpot,honeypot,">
+
+  <!-- Base ShadowPot Rule -->
+  <rule id="100300" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="honeypot">^ShadowPot$</field>
+    <description>ShadowPot: Honeypot activity detected</description>
+  </rule>
+
+  <!-- Authentication Failure -->
+  <rule id="100301" level="5">
+    <if_sid>100300</if_sid>
+    <field name="event_type">^auth_failure$</field>
+    <description>ShadowPot: Authentication failure from $(source.ip) [User: $(auth.username)]</description>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+    <group>authentication_failed,pci_dss_10.2.4,pci_dss_10.2.5,</group>
+  </rule>
+
+  <!-- Authentication Success (Honeypot Compromised) -->
+  <rule id="100302" level="10">
+    <if_sid>100300</if_sid>
+    <field name="event_type">^auth_success$</field>
+    <description>ShadowPot: CRITICAL - Attacker logged into honeypot from $(source.ip) as $(auth.username)</description>
+    <mitre>
+      <id>T1078.003</id>
+    </mitre>
+    <group>authentication_success,initial_access,</group>
+  </rule>
+
+  <!-- Interactive Recon Command Executed -->
+  <rule id="100303" level="7">
+    <if_sid>100300</if_sid>
+    <field name="event_type">^command_exec$</field>
+    <description>ShadowPot: Attacker executed command: '$(command)' from $(source.ip)</description>
+    <mitre>
+      <id>T1059.004</id>
+      <id>T1082</id>
+    </mitre>
+    <group>execution,discovery,</group>
+  </rule>
+
+  <!-- Ingress Tool Transfer / Malware Payload Download -->
+  <rule id="100304" level="12">
+    <if_sid>100300</if_sid>
+    <field name="event_type">^command_exec$</field>
+    <match>curl|wget|ftpget|tftp|base64</match>
+    <description>ShadowPot: HIGH SEVERITY - Ingress tool transfer or dropper command detected: '$(command)'</description>
+    <mitre>
+      <id>T1105</id>
+      <id>T1059.004</id>
+    </mitre>
+    <group>command_and_control,malware_download,</group>
+  </rule>
+
+  <!-- Brute Force Detection -->
+  <rule id="100305" level="10" frequency="6" timeframe="60">
+    <if_matched_sid>100301</if_matched_sid>
+    <same_source_ip />
+    <description>ShadowPot: Brute force attack in progress from $(source.ip) (multiple failed attempts)</description>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+    <group>attack,bruteforce,</group>
+  </rule>
+
+</group>

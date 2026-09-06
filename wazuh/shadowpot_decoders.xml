@@ -1,0 +1,8 @@
+<!--
+  ShadowPot Custom Wazuh Decoders
+  Place in: /var/ossec/etc/decoders/local_decoder.xml
+-->
+<decoder name="shadowpot-json">
+  <prematch>^{"timestamp":</prematch>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+</decoder>

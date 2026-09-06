@@ -1,0 +1,37 @@
+honeypot:
+  name: "ShadowPot"
+  version: "1.0.0"
+  listen_host: "0.0.0.0"
+  ssh_port: 2222
+  banner: "SSH-2.0-OpenSSH_8.9p1 Ubuntu-3ubuntu0.6"
+  host_key_path: "data/host_rsa.key"
+
+auth:
+  accept_all: true
+  allowed_credentials:
+    - username: "root"
+      password: "password123"
+    - username: "admin"
+      password: "admin"
+  max_auth_attempts_per_conn: 5
+
+emulation:
+  hostname: "ubuntu-server-prod-01"
+  default_user: "root"
+  system_uptime: "14 days, 3 hours, 22 minutes"
+  quarantine_downloads: true
+  quarantine_dir: "quarantine"
+
+logging:
+  json_log_path: "logs/shadowpot.json"
+  db_path: "data/shadowpot.db"
+  level: "INFO"
+
+threat_intel:
+  enable_geoip: true
+  cache_ttl_seconds: 86400
+
+dashboard:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8080

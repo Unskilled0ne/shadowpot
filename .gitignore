@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+logs/*.json
+!logs/.gitkeep
+data/*.db
+data/*.key
+!data/.gitkeep
+quarantine/*
+!quarantine/.gitkeep
+.DS_Store
