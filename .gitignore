@@ -9,3 +9,10 @@ data/*.key
 quarantine/*
 !quarantine/.gitkeep
 .DS_Store
+
+# Secrets
+*.key
+*.pub
+*.pem
+.env
+
