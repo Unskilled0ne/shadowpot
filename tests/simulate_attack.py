@@ -14,7 +14,7 @@ BRUTE_FORCE_LIST = [
     ("support", "support!"),
     ("oracle", "oracle"),
     ("test", "test"),
-    ("root", "password123")  # Expected success
+    ("root", "password123")
 ]
 
 RECON_COMMANDS = [

@@ -59,7 +59,7 @@ class PayloadTrap:
                     if not chunk:
                         break
                     total_size += len(chunk)
-                    if total_size > 10 * 1024 * 1024:  # 10 MB maximum
+                    if total_size > 10 * 1024 * 1024:
                         break
                     sha256.update(chunk)
                     md5.update(chunk)

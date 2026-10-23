@@ -10,7 +10,7 @@ from shadowpot.logger import EventLogger
 
 def create_dashboard_app(event_logger: EventLogger, config: Dict[str, Any]) -> FastAPI:
     active_queues: Set[asyncio.Queue] = set()
-    main_loop: list = [None]  # Container to hold reference to running asyncio loop
+    main_loop: list = [None]
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
