@@ -145,8 +145,6 @@ class EmulatedShell:
 
         self.history.append(cmd_line)
 
-        # Handle chaining (semi-colon or && or pipes)
-        # Handle 'exit' / 'logout'
         if cmd_line in ("exit", "logout", "quit"):
             return "logout\n", True
 
@@ -157,7 +155,6 @@ class EmulatedShell:
         cmd = parts[0]
         args = parts[1:] if len(parts) > 1 else []
 
-        # Recon commands
         if cmd == "pwd":
             return f"{self.cwd}\n", False
 
@@ -234,15 +231,12 @@ class EmulatedShell:
             return "[sudo] password for " + self.username + ": \n", False
 
         elif cmd in ("curl", "wget"):
-            # Simulate network download progress
             url = args[-1] if args else "http://example.com"
             return f"Connecting to {url}... connected.\nHTTP request sent, awaiting response... 200 OK\nLength: unspecified [application/octet-stream]\nSaving to: 'output'\n", False
 
         elif cmd in ("echo", "touch", "rm", "mkdir", "chmod", "chown"):
-            # Acknowledge silently like standard unix
             return "", False
 
-        # Fallback for unrecognized command
         return f"bash: {cmd}: command not found\n", False
 
     def _handle_ls(self, args) -> str:

@@ -32,7 +32,6 @@ def enrich_ip(ip_str: str) -> Dict[str, Any]:
             "is_private": True
         }
 
-    # Check cache
     now = time.time()
     if ip_str in _CACHE:
         cached = _CACHE[ip_str]
@@ -40,7 +39,6 @@ def enrich_ip(ip_str: str) -> Dict[str, Any]:
             return cached
 
     try:
-        # Free IP API query with short timeout
         resp = requests.get(
             f"http://ip-api.com/json/{ip_str}?fields=status,message,country,countryCode,city,org,as",
             timeout=2.0

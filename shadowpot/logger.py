@@ -96,7 +96,6 @@ class EventLogger:
         threat_intel = threat_intel or {}
         extra = extra or {}
 
-        # Classify MITRE ATT&CK
         mitre_info = MITRE_MAPPINGS.get(event_type, {"id": "T1059", "tactic": "Execution", "technique": "Command Execution"})
         if command:
             cmd_lower = command.lower().strip()
@@ -135,12 +134,10 @@ class EventLogger:
             "extra": extra
         }
 
-        # Write to JSON file for Wazuh / SIEM
         with self._lock:
             with open(self.json_log_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(event) + "\n")
 
-            # Store in SQLite
             try:
                 with sqlite3.connect(self.db_path) as conn:
                     cursor = conn.cursor()
@@ -156,7 +153,6 @@ class EventLogger:
                         mitre_info["id"], mitre_info["tactic"], json.dumps(event)
                     ))
 
-                    # Track session
                     if event_type in ("auth_success", "auth_attempt"):
                         is_auth = 1 if event_type == "auth_success" else 0
                         cursor.execute("""
@@ -180,7 +176,6 @@ class EventLogger:
                         WHERE session_id = ?
                         """, (now, session_id))
 
-                    # Track payloads
                     if "captured_files" in extra:
                         for item in extra["captured_files"]:
                             if item.get("downloaded"):
@@ -196,7 +191,6 @@ class EventLogger:
             except Exception as e:
                 logger.error(f"Error persisting event to SQLite: {e}")
 
-        # Notify active streaming listeners (for Web Dashboard)
         for listener in self._listeners:
             try:
                 listener(event)

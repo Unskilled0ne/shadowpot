@@ -43,11 +43,9 @@ class PayloadTrap:
         """
         try:
             parsed = urllib.parse.urlparse(url)
-            # Only allow standard schemes
             if parsed.scheme not in ("http", "https"):
                 return None
 
-            # Stream download with 10MB limit and 5-second timeout
             with requests.get(url, stream=True, timeout=5.0, headers={"User-Agent": "Wget/1.21.3"}) as r:
                 if r.status_code != 200:
                     return {"url": url, "status": f"HTTP {r.status_code}", "downloaded": False}
@@ -70,7 +68,6 @@ class PayloadTrap:
                 sha256_hex = sha256.hexdigest()
                 md5_hex = md5.hexdigest()
 
-                # Quarantine file
                 dest_filename = f"payload_{sha256_hex[:16]}.quarantine"
                 dest_path = os.path.join(self.quarantine_dir, dest_filename)
 

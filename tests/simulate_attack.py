@@ -71,7 +71,6 @@ def simulate_session_and_recon():
         client.connect(TARGET_HOST, port=TARGET_PORT, username=user, password=pwd, timeout=5)
         print(f"[+] Successfully authenticated as {user}")
 
-        # Test single command executions
         for cmd in RECON_COMMANDS:
             stdin, stdout, stderr = client.exec_command(cmd)
             out = stdout.read().decode('utf-8', errors='ignore').strip()

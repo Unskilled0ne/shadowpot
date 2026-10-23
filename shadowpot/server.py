@@ -203,7 +203,6 @@ class SSHServer:
 
             transport.start_server(server=interface)
 
-            # Accept multiple channels (either serial exec commands or shell)
             while transport.is_active():
                 channel = transport.accept(timeout=1.0)
                 if not channel:
@@ -216,7 +215,6 @@ class SSHServer:
 
                 user = interface.username or "root"
 
-                # Check if single exec command
                 if chanid in interface.channel_commands:
                     cmd = interface.channel_commands[chanid].strip()
                     trap_analysis = self.trap.analyze_command(cmd)
@@ -235,7 +233,6 @@ class SSHServer:
                     channel.close()
                     continue
 
-                # Interactive PTY / Shell
                 channel.send(MOTD.replace("\n", "\r\n").encode("utf-8"))
                 channel.send(shell.get_prompt().encode("utf-8"))
 

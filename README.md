@@ -85,7 +85,7 @@ Unlike monolithic honeypots, ShadowPot produces **native SIEM-structured JSON te
 ### 1. Installation
 
 ```bash
-git clone https://github.com/your-username/shadowpot.git
+git clone https://github.com/Unskilled0ne/shadowpot.git
 cd shadowpot
 
 python3 -m venv venv
