@@ -45,6 +45,13 @@ def main():
     db_path = config.get("logging", {}).get("db_path", "data/shadowpot.db")
     event_logger = EventLogger(json_log_path=json_log, db_path=db_path)
 
+    # Initialize SOAR Closed-Loop Event Forwarder
+    from shadowpot.forwarder import SOARForwarder
+    soar_forwarder = SOARForwarder(config=config)
+    event_logger.register_listener(soar_forwarder.handle_event)
+    logger.info("[+] Aegis-SOAR closed-loop incident response integration initialized")
+
+
     ssh_server = None
     if not args.no_ssh:
         ssh_server = SSHServer(config=config, event_logger=event_logger)
