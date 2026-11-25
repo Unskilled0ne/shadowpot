@@ -21,9 +21,10 @@ class SOARForwarder:
         self.primary_webhook = soar_cfg.get("webhook_url", "http://aegis-soar:8000/api/v1/alerts/webhook")
         self.primary_investigate = soar_cfg.get("investigate_url", "http://aegis-soar:8000/api/v1/alerts/investigate")
         self.threshold = soar_cfg.get("brute_force_threshold", 5)
+        self.cooldown_seconds = soar_cfg.get("cooldown_seconds", 300)
         
         self.failed_attempts: Dict[str, int] = {}
-        self.alerted_ips: set = set()
+        self.last_alert_time: Dict[str, float] = {}
         self._lock = threading.Lock()
         
         # Fallback endpoints if container hostname vs localhost varies
@@ -49,21 +50,34 @@ class SOARForwarder:
         if not src_ip:
             return
 
+        now = time.time()
+
+        # 1. SSH Brute Force Monitoring (T1110.001)
         if event_type in ("auth_failure", "auth_attempt"):
+            should_alert = False
             with self._lock:
                 self.failed_attempts[src_ip] = self.failed_attempts.get(src_ip, 0) + 1
                 count = self.failed_attempts[src_ip]
+                last_time = self.last_alert_time.get(src_ip, 0.0)
 
-            if count >= self.threshold and src_ip not in self.alerted_ips:
-                with self._lock:
-                    self.alerted_ips.add(src_ip)
-                
-                # Asynchronously ship to Aegis-SOAR
+                if count >= self.threshold and (now - last_time) >= self.cooldown_seconds:
+                    self.last_alert_time[src_ip] = now
+                    should_alert = True
+
+            if should_alert:
                 threading.Thread(
                     target=self._dispatch_bruteforce_alert,
                     args=(src_ip, count, event),
                     daemon=True
                 ).start()
+
+        # 2. Ingress Tool Transfer / Payload Dropper (T1105)
+        elif event_type == "payload_download" or event.get("mitre", {}).get("id") == "T1105":
+            threading.Thread(
+                target=self._dispatch_payload_alert,
+                args=(src_ip, event),
+                daemon=True
+            ).start()
 
     def _post_with_fallback(self, endpoints: List[str], payload: Dict[str, Any]) -> bool:
         for url in endpoints:
@@ -79,7 +93,7 @@ class SOARForwarder:
         return False
 
     def _dispatch_bruteforce_alert(self, src_ip: str, attempt_count: int, event: Dict[str, Any]):
-        # 1. Trigger automated closed-loop containment playbook
+        # Automated closed-loop containment playbook
         webhook_payload = {
             "playbook": "bruteforce_containment",
             "attacker_ip": src_ip,
@@ -88,7 +102,7 @@ class SOARForwarder:
         }
         success_wh = self._post_with_fallback(self.webhook_endpoints, webhook_payload)
 
-        # 2. Ingest into SOAR AI investigation & audit pipeline
+        # Ingest into SOAR AI investigation & audit pipeline
         investigate_payload = {
             "alert_id": f"ALT-SHADOWPOT-{uuid.uuid4().hex[:6].upper()}",
             "source": "shadowpot",
@@ -107,6 +121,42 @@ class SOARForwarder:
                 "session_id": event.get("session_id"),
                 "country": event.get("source", {}).get("country"),
                 "closed_loop_action": "TRIGGERED" if success_wh else "QUEUED"
+            }
+        }
+        self._post_with_fallback(self.investigate_endpoints, investigate_payload)
+
+    def _dispatch_payload_alert(self, src_ip: str, event: Dict[str, Any]):
+        extra = event.get("extra") or {}
+        captured_files = extra.get("captured_files") or []
+        
+        file_hashes = []
+        urls = []
+        for cf in captured_files:
+            if isinstance(cf, dict):
+                if cf.get("sha256"):
+                    file_hashes.append(cf["sha256"])
+                elif cf.get("md5"):
+                    file_hashes.append(cf["md5"])
+                if cf.get("url"):
+                    urls.append(cf["url"])
+
+        investigate_payload = {
+            "alert_id": f"ALT-SHADOWPOT-{uuid.uuid4().hex[:6].upper()}",
+            "source": "shadowpot",
+            "timestamp": event.get("timestamp", ""),
+            "event_type": "payload_download",
+            "severity": "CRITICAL",
+            "rule_id": "100304",
+            "rule_description": f"ShadowPot: Malware dropper / tool transfer detected (T1105) from {src_ip}",
+            "source_ip": src_ip,
+            "extracted_urls": urls,
+            "file_hashes": file_hashes,
+            "raw_log": f"Command executed: {event.get('command') or 'curl/wget dropper'}",
+            "metadata": {
+                "mitre_id": "T1105",
+                "mitre_tactic": "Command and Control",
+                "session_id": event.get("session_id"),
+                "quarantine_files": captured_files
             }
         }
         self._post_with_fallback(self.investigate_endpoints, investigate_payload)
